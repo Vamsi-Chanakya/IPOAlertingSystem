@@ -1,0 +1,6 @@
+# State file (managed by GitHub Actions cache)
+ipo_state.json
+
+# Python
+__pycache__/
+*.py[cod]
