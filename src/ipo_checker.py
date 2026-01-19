@@ -6,7 +6,6 @@ from enum import Enum
 from typing import Optional
 
 import requests
-from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -65,65 +64,76 @@ class IPOChecker:
 
     def check_status(self) -> IPOInfo:
         """Check IPO status from multiple sources."""
-        # Try different sources in order of reliability
-        info = self._check_yahoo_finance()
+        # Try Yahoo Finance API first (most reliable for trading stocks)
+        info = self._check_yahoo_finance_api()
         if info and info.status != IPOStatus.NOT_FOUND:
             return info
 
+        # Check NASDAQ IPO calendar for upcoming IPOs
         info = self._check_nasdaq_ipo_calendar()
-        if info and info.status != IPOStatus.NOT_FOUND:
-            return info
-
-        info = self._check_marketwatch()
         if info and info.status != IPOStatus.NOT_FOUND:
             return info
 
         # Return not found status
         return IPOInfo(symbol=self.symbol, status=IPOStatus.NOT_FOUND)
 
-    def _check_yahoo_finance(self) -> Optional[IPOInfo]:
-        """Check Yahoo Finance for stock listing status."""
+    def _check_yahoo_finance_api(self) -> Optional[IPOInfo]:
+        """Check Yahoo Finance API for stock data."""
         try:
-            url = f"https://finance.yahoo.com/quote/{self.symbol}"
-            response = self.session.get(url, timeout=15)
+            # Use Yahoo Finance quote API
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{self.symbol}"
+            params = {"interval": "1d", "range": "1d"}
+            response = self.session.get(url, params=params, timeout=15)
 
             if response.status_code == 200:
-                soup = BeautifulSoup(response.text, "html.parser")
+                data = response.json()
+                result = data.get("chart", {}).get("result")
 
-                # Check if the stock page exists and has price data
-                price_element = soup.find("fin-streamer", {"data-field": "regularMarketPrice"})
-                if price_element:
-                    price = price_element.get("data-value") or price_element.text.strip()
+                if result and len(result) > 0:
+                    meta = result[0].get("meta", {})
 
-                    # Get company name
-                    title_element = soup.find("h1")
-                    company_name = None
-                    if title_element:
-                        company_name = title_element.text.strip()
+                    # Check if this is a valid tradeable stock
+                    symbol = meta.get("symbol", "").upper()
+                    if symbol != self.symbol:
+                        return IPOInfo(symbol=self.symbol, status=IPOStatus.NOT_FOUND)
 
-                    # Get exchange info
-                    exchange_element = soup.find("span", class_=lambda x: x and "exchange" in x.lower() if x else False)
-                    exchange = exchange_element.text.strip() if exchange_element else None
+                    price = meta.get("regularMarketPrice")
+                    exchange = meta.get("exchangeName")
+                    company_name = meta.get("shortName") or meta.get("longName")
+                    currency = meta.get("currency", "USD")
 
-                    return IPOInfo(
-                        symbol=self.symbol,
-                        status=IPOStatus.TRADING,
-                        company_name=company_name,
-                        exchange=exchange,
-                        price=price,
-                        details=f"Currently trading at ${price}",
-                    )
+                    if price:
+                        return IPOInfo(
+                            symbol=self.symbol,
+                            status=IPOStatus.TRADING,
+                            company_name=company_name,
+                            exchange=exchange,
+                            price=f"{price:.2f}",
+                            details=f"Trading on {exchange} at {currency} {price:.2f}",
+                        )
+
+            # Check error response
+            if response.status_code == 404:
+                return IPOInfo(symbol=self.symbol, status=IPOStatus.NOT_FOUND)
+
+            # Try to parse error from response
+            try:
+                data = response.json()
+                error = data.get("chart", {}).get("error")
+                if error and "No data found" in str(error):
+                    return IPOInfo(symbol=self.symbol, status=IPOStatus.NOT_FOUND)
+            except Exception:
+                pass
 
             return IPOInfo(symbol=self.symbol, status=IPOStatus.NOT_FOUND)
 
         except requests.RequestException as e:
-            logger.warning(f"Yahoo Finance check failed: {e}")
+            logger.warning(f"Yahoo Finance API check failed: {e}")
             return None
 
     def _check_nasdaq_ipo_calendar(self) -> Optional[IPOInfo]:
         """Check NASDAQ IPO calendar for upcoming/recent IPOs."""
         try:
-            # Check upcoming IPOs
             url = "https://api.nasdaq.com/api/ipo/calendar"
             headers = {
                 "User-Agent": self.USER_AGENT,
@@ -136,9 +146,9 @@ class IPOChecker:
 
                 # Search in upcoming, priced, and filed sections
                 for section in ["upcoming", "priced", "filed"]:
-                    rows = data.get("data", {}).get(section, {}).get("rows", [])
+                    rows = data.get("data", {}).get(section, {}).get("rows", []) or []
                     for row in rows:
-                        symbol = row.get("proposedTickerSymbol", "").upper()
+                        symbol = (row.get("proposedTickerSymbol") or "").upper()
                         if symbol == self.symbol:
                             company_name = row.get("companyName")
                             expected_date = row.get("expectedPriceDate") or row.get("pricedDate")
@@ -146,7 +156,7 @@ class IPOChecker:
                             if section == "priced":
                                 status = IPOStatus.SUBSCRIPTION_CLOSED
                             elif section == "upcoming":
-                                status = IPOStatus.UPCOMING
+                                status = IPOStatus.SUBSCRIPTION_OPEN
                             else:
                                 status = IPOStatus.UPCOMING
 
@@ -163,38 +173,6 @@ class IPOChecker:
 
         except requests.RequestException as e:
             logger.warning(f"NASDAQ calendar check failed: {e}")
-            return None
-
-    def _check_marketwatch(self) -> Optional[IPOInfo]:
-        """Check MarketWatch for stock information."""
-        try:
-            url = f"https://www.marketwatch.com/investing/stock/{self.symbol.lower()}"
-            response = self.session.get(url, timeout=15)
-
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, "html.parser")
-
-                # Check for price element
-                price_element = soup.find("bg-quote", class_="value")
-                if price_element:
-                    price = price_element.text.strip()
-
-                    # Get company name
-                    name_element = soup.find("h1", class_="company__name")
-                    company_name = name_element.text.strip() if name_element else None
-
-                    return IPOInfo(
-                        symbol=self.symbol,
-                        status=IPOStatus.TRADING,
-                        company_name=company_name,
-                        price=price,
-                        details=f"Trading on MarketWatch at ${price}",
-                    )
-
-            return IPOInfo(symbol=self.symbol, status=IPOStatus.NOT_FOUND)
-
-        except requests.RequestException as e:
-            logger.warning(f"MarketWatch check failed: {e}")
             return None
 
 
