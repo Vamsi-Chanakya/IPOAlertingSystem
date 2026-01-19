@@ -54,20 +54,29 @@ def save_state(ipo_info: IPOInfo) -> None:
 
 
 def should_send_alert(current_info: IPOInfo, previous_state: dict) -> bool:
-    """Determine if an alert should be sent based on status change."""
-    # Always alert if shares are now tradeable
-    if current_info.is_tradeable():
-        previous_status = previous_state.get("status")
-        if previous_status != current_info.status.value:
-            return True
+    """Determine if an alert should be sent based on status change.
 
-    # Alert on any actionable status change
-    if current_info.is_actionable():
-        previous_status = previous_state.get("status")
-        if previous_status != current_info.status.value:
-            return True
+    Only sends alerts for these 3 specific events:
+    1. IPO subscription opens
+    2. Allotment results are announced
+    3. Shares become available for trading
+    """
+    previous_status = previous_state.get("status")
+    current_status = current_info.status
 
-    return False
+    # Don't alert if status hasn't changed
+    if previous_status == current_status.value:
+        return False
+
+    # Only alert for these 3 specific events
+    alert_statuses = (
+        IPOStatus.SUBSCRIPTION_OPEN,  # Subscription opens
+        IPOStatus.ALLOTMENT_DONE,     # Allotment results announced
+        IPOStatus.LISTED,             # Shares available for trading
+        IPOStatus.TRADING,            # Shares available for trading
+    )
+
+    return current_status in alert_statuses
 
 
 def main() -> int:
@@ -108,16 +117,7 @@ def main() -> int:
         else:
             logger.error("Failed to send alert")
     else:
-        logger.info("No significant status change - skipping alert")
-
-        # Send a notification if this is the first run and IPO is not found
-        if not previous_state and ipo_info.status == IPOStatus.NOT_FOUND:
-            notifier.send_status_update(
-                f"🔔 IPO Monitor Started\n\n"
-                f"Monitoring: <b>{config.ipo_symbol}</b>\n"
-                f"Current Status: Not yet listed\n\n"
-                f"You will be notified when the IPO status changes."
-            )
+        logger.info("No alert conditions met - skipping notification")
 
     # Save current state
     save_state(ipo_info)
