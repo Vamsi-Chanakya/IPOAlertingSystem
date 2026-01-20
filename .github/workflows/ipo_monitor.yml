@@ -48,8 +48,12 @@ jobs:
 
       - name: Run alerting system
         env:
+          # IPO Bot
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Volatility Bot
+          VOLATILITY_BOT_TOKEN: ${{ secrets.VOLATILITY_BOT_TOKEN }}
+          VOLATILITY_CHAT_ID: ${{ secrets.VOLATILITY_CHAT_ID }}
         run: python main.py
 
       - name: Save IPO state cache

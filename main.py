@@ -161,8 +161,9 @@ def main() -> int:
         logger.error(f"Configuration error: {e}")
         return 1
 
-    # Initialize notifier
-    notifier = TelegramNotifier(config.telegram_bot_token, config.telegram_chat_id)
+    # Initialize separate notifiers for IPO and Volatility
+    ipo_notifier = TelegramNotifier(config.ipo_bot.bot_token, config.ipo_bot.chat_id)
+    volatility_notifier = TelegramNotifier(config.volatility_bot.bot_token, config.volatility_bot.chat_id)
 
     # Process IPO watchlist
     ipo_watchlist = get_ipo_watchlist()
@@ -170,7 +171,7 @@ def main() -> int:
         logger.info(f"IPO Watchlist: {len(ipo_watchlist)} symbol(s): {', '.join(ipo_watchlist)}")
         ipo_states = load_state(IPO_STATE_FILE)
         for symbol in ipo_watchlist:
-            check_ipo_symbol(symbol, notifier, ipo_states)
+            check_ipo_symbol(symbol, ipo_notifier, ipo_states)
         save_state(IPO_STATE_FILE, ipo_states)
     else:
         logger.info("IPO Watchlist: empty")
@@ -181,7 +182,7 @@ def main() -> int:
         logger.info(f"Volatility Watchlist: {len(volatility_watchlist)} symbol(s): {', '.join(volatility_watchlist)}")
         volatility_states = load_state(VOLATILITY_STATE_FILE)
         for symbol in volatility_watchlist:
-            check_volatility_symbol(symbol, notifier, volatility_states)
+            check_volatility_symbol(symbol, volatility_notifier, volatility_states)
         save_state(VOLATILITY_STATE_FILE, volatility_states)
     else:
         logger.info("Volatility Watchlist: empty")

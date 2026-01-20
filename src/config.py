@@ -34,33 +34,55 @@ def get_from_keychain(service: str) -> Optional[str]:
 
 
 @dataclass
+class BotConfig:
+    """Telegram bot configuration."""
+
+    bot_token: str
+    chat_id: str
+
+
+@dataclass
 class Config:
     """Application configuration loaded from environment variables or Keychain."""
 
-    telegram_bot_token: str
-    telegram_chat_id: str
+    ipo_bot: BotConfig
+    volatility_bot: BotConfig
 
     @classmethod
     def from_env(cls) -> "Config":
         """Load configuration from environment variables, falling back to Keychain on macOS."""
-        # Try environment variables first (for GitHub Actions)
-        bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-        chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+        # IPO Bot configuration
+        ipo_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+        ipo_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
-        # Fall back to Keychain for local development on macOS
-        if not bot_token:
-            bot_token = get_from_keychain("TELEGRAM_BOT_TOKEN")
-        if not chat_id:
-            chat_id = get_from_keychain("TELEGRAM_CHAT_ID")
+        if not ipo_token:
+            ipo_token = get_from_keychain("TELEGRAM_BOT_TOKEN")
+        if not ipo_chat_id:
+            ipo_chat_id = get_from_keychain("TELEGRAM_CHAT_ID")
 
-        if not bot_token:
+        if not ipo_token:
             raise ValueError("TELEGRAM_BOT_TOKEN not found in environment or Keychain")
-        if not chat_id:
+        if not ipo_chat_id:
             raise ValueError("TELEGRAM_CHAT_ID not found in environment or Keychain")
 
+        # Volatility Bot configuration (falls back to IPO bot if not configured)
+        vol_token = os.environ.get("VOLATILITY_BOT_TOKEN")
+        vol_chat_id = os.environ.get("VOLATILITY_CHAT_ID")
+
+        if not vol_token:
+            vol_token = get_from_keychain("VOLATILITY_BOT_TOKEN")
+        if not vol_chat_id:
+            vol_chat_id = get_from_keychain("VOLATILITY_CHAT_ID")
+
+        # Fall back to IPO bot if volatility bot not configured
+        if not vol_token:
+            vol_token = ipo_token
+        if not vol_chat_id:
+            vol_chat_id = ipo_chat_id
+
         return cls(
-            telegram_bot_token=bot_token,
-            telegram_chat_id=chat_id,
+            ipo_bot=BotConfig(bot_token=ipo_token, chat_id=ipo_chat_id),
+            volatility_bot=BotConfig(bot_token=vol_token, chat_id=vol_chat_id),
         )
 
 

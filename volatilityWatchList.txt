@@ -1,3 +1,6 @@
 # Volatility watchlist - one ticker per line
 # Alerts on sudden price movements (rally or drop)
 # Supports stocks and crypto (e.g., AAPL, BTC-USD, ETH-USD)
+BTC-USD
+LINK-USD
+NVDA
