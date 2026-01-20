@@ -7,8 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
-# Default watchlist file path
-WATCHLIST_FILE = Path(__file__).parent.parent / "watchlist.txt"
+# Default watchlist file paths
+IPO_WATCHLIST_FILE = Path(__file__).parent.parent / "ipoWatchList.txt"
+VOLATILITY_WATCHLIST_FILE = Path(__file__).parent.parent / "volatilityWatchList.txt"
 
 # Keychain service name for local secrets
 KEYCHAIN_ACCOUNT = "IPOAlertingSystem"
@@ -68,23 +69,29 @@ def get_config() -> Config:
     return Config.from_env()
 
 
-def get_watchlist() -> List[str]:
-    """Load ticker symbols from watchlist.txt (one symbol per line)."""
-    watchlist_path = os.environ.get("WATCHLIST_FILE", WATCHLIST_FILE)
-    watchlist_path = Path(watchlist_path)
-
-    if not watchlist_path.exists():
-        raise FileNotFoundError(f"Watchlist file not found: {watchlist_path}")
+def _read_watchlist_file(file_path: Path) -> List[str]:
+    """Read symbols from a watchlist file (one symbol per line)."""
+    if not file_path.exists():
+        return []
 
     symbols = []
-    with open(watchlist_path, "r") as f:
+    with open(file_path, "r") as f:
         for line in f:
             symbol = line.strip().upper()
             # Skip empty lines and comments
             if symbol and not symbol.startswith("#"):
                 symbols.append(symbol)
 
-    if not symbols:
-        raise ValueError("Watchlist file is empty")
-
     return symbols
+
+
+def get_ipo_watchlist() -> List[str]:
+    """Load ticker symbols from ipoWatchList.txt."""
+    watchlist_path = os.environ.get("IPO_WATCHLIST_FILE", IPO_WATCHLIST_FILE)
+    return _read_watchlist_file(Path(watchlist_path))
+
+
+def get_volatility_watchlist() -> List[str]:
+    """Load ticker symbols from volatilityWatchList.txt."""
+    watchlist_path = os.environ.get("VOLATILITY_WATCHLIST_FILE", VOLATILITY_WATCHLIST_FILE)
+    return _read_watchlist_file(Path(watchlist_path))

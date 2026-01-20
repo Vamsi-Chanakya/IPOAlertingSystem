@@ -1,4 +1,4 @@
-name: IPO Monitor
+name: IPO & Volatility Monitor
 
 on:
   # Run every 5 minutes
@@ -14,7 +14,7 @@ on:
       - main
 
 jobs:
-  check-ipo:
+  check-alerts:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Restore state cache
+      - name: Restore IPO state cache
         uses: actions/cache@v4
         with:
           path: ipo_state.json
@@ -38,15 +38,30 @@ jobs:
           restore-keys: |
             ipo-state-
 
-      - name: Run IPO checker
+      - name: Restore volatility state cache
+        uses: actions/cache@v4
+        with:
+          path: volatility_state.json
+          key: volatility-state-${{ github.run_id }}
+          restore-keys: |
+            volatility-state-
+
+      - name: Run alerting system
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python main.py
 
-      - name: Save state cache
+      - name: Save IPO state cache
         uses: actions/cache/save@v4
         if: always()
         with:
           path: ipo_state.json
           key: ipo-state-${{ github.run_id }}
+
+      - name: Save volatility state cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: volatility_state.json
+          key: volatility-state-${{ github.run_id }}

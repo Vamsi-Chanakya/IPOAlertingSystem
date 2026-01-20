@@ -6,6 +6,7 @@ from typing import Optional
 import requests
 
 from .ipo_checker import IPOInfo, IPOStatus
+from .volatility_checker import MovementType, VolatilityInfo
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,32 @@ class TelegramNotifier:
 
         if ipo_info.is_tradeable():
             message += "\n<b>Shares are now available for trading!</b>"
+
+        return self.send_message(message.strip())
+
+    def send_volatility_alert(self, vol_info: VolatilityInfo) -> bool:
+        """Send a formatted volatility alert message."""
+        if vol_info.movement == MovementType.RALLY:
+            emoji = "🚀"
+            movement_text = "RALLY"
+        else:
+            emoji = "📉"
+            movement_text = "DROP"
+
+        message = f"""
+{emoji} <b>Volatility Alert: {vol_info.symbol}</b>
+
+<b>Movement:</b> {movement_text} ({vol_info.change_percent:+.2f}%)
+"""
+
+        if vol_info.company_name:
+            message += f"<b>Company:</b> {vol_info.company_name}\n"
+
+        if vol_info.current_price is not None:
+            message += f"<b>Current Price:</b> {vol_info.currency} {vol_info.current_price:.2f}\n"
+
+        if vol_info.previous_price is not None:
+            message += f"<b>Previous Price:</b> {vol_info.currency} {vol_info.previous_price:.2f}\n"
 
         return self.send_message(message.strip())
 
