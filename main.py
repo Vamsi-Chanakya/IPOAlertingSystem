@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""IPO and Volatility Alerting System - Main Entry Point.
+"""IPO, Volatility, and Upcoming IPO Alerting System - Main Entry Point.
 
 This script checks:
 1. IPO status for symbols in ipoWatchList.txt
 2. Price volatility for symbols in volatilityWatchList.txt
+3. Upcoming IPOs in upcomingIPOList.txt (alerts 2 days before)
 
 Sends Telegram alerts when conditions are met.
 """
@@ -11,12 +12,14 @@ Sends Telegram alerts when conditions are met.
 import json
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Tuple, Optional
 
-from src.config import get_config, get_ipo_watchlist, get_volatility_watchlist
+from src.config import get_config, get_ipo_watchlist, get_volatility_watchlist, get_upcoming_ipo_watchlist
 from src.ipo_checker import IPOInfo, IPOStatus, check_ipo_status
 from src.volatility_checker import VolatilityInfo, check_volatility
+from src.upcoming_ipo_checker import UpcomingIPO, check_upcoming_ipos
 from src.telegram_notifier import TelegramNotifier
 
 # Configure logging
@@ -29,6 +32,7 @@ logger = logging.getLogger(__name__)
 # State files for tracking
 IPO_STATE_FILE = Path("ipo_state.json")
 VOLATILITY_STATE_FILE = Path("volatility_state.json")
+UPCOMING_IPO_STATE_FILE = Path("upcoming_ipo_state.json")
 
 
 def load_state(state_file: Path) -> Dict[str, dict]:
@@ -150,6 +154,61 @@ def check_volatility_symbol(symbol: str, notifier: TelegramNotifier, states: Dic
         }
 
 
+def process_upcoming_ipos(
+    watchlist: List[Tuple[str, Optional[str]]],
+    notifier: TelegramNotifier,
+    states: Dict[str, dict]
+) -> None:
+    """Process upcoming IPO watchlist and send alerts."""
+    if not watchlist:
+        logger.info("Upcoming IPO Watchlist: empty")
+        return
+
+    symbols = [s for s, _ in watchlist]
+    logger.info(f"Upcoming IPO Watchlist: {len(watchlist)} symbol(s): {', '.join(symbols)}")
+
+    # Check all upcoming IPOs
+    upcoming_ipos = check_upcoming_ipos(watchlist)
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    for ipo in upcoming_ipos:
+        logger.info(f"[Upcoming IPO] Checking: {ipo.symbol}")
+
+        if ipo.company_name:
+            logger.info(f"  Company: {ipo.company_name}")
+        if ipo.expected_date:
+            logger.info(f"  Expected Date: {ipo.format_date()}")
+        if ipo.days_until_ipo is not None:
+            logger.info(f"  Days until IPO: {ipo.days_until_ipo}")
+
+        previous_state = states.get(ipo.symbol, {})
+        last_alert_date = previous_state.get("last_alert_date")
+
+        # Only alert once per day
+        if ipo.should_alert and last_alert_date != today:
+            logger.info(f"  Alert condition met (IPO within 2 days) - sending notification")
+            if notifier.send_upcoming_ipo_alert(ipo):
+                logger.info(f"  Alert sent successfully")
+                states[ipo.symbol] = {
+                    "last_alert_date": today,
+                    "expected_date": ipo.format_date(),
+                    "company_name": ipo.company_name,
+                }
+            else:
+                logger.error(f"  Failed to send alert")
+        elif ipo.should_alert:
+            logger.info(f"  Already alerted today - skipping")
+        else:
+            logger.info(f"  No alert needed (IPO not within 2 days)")
+
+            # Still update state for tracking
+            if ipo.symbol not in states:
+                states[ipo.symbol] = {
+                    "expected_date": ipo.format_date(),
+                    "company_name": ipo.company_name,
+                }
+
+
 def main() -> int:
     """Main entry point."""
     logger.info("Starting Alerting System")
@@ -161,9 +220,10 @@ def main() -> int:
         logger.error(f"Configuration error: {e}")
         return 1
 
-    # Initialize separate notifiers for IPO and Volatility
+    # Initialize separate notifiers for each alert type
     ipo_notifier = TelegramNotifier(config.ipo_bot.bot_token, config.ipo_bot.chat_id)
     volatility_notifier = TelegramNotifier(config.volatility_bot.bot_token, config.volatility_bot.chat_id)
+    upcoming_ipo_notifier = TelegramNotifier(config.upcoming_ipo_bot.bot_token, config.upcoming_ipo_bot.chat_id)
 
     # Process IPO watchlist
     ipo_watchlist = get_ipo_watchlist()
@@ -186,6 +246,12 @@ def main() -> int:
         save_state(VOLATILITY_STATE_FILE, volatility_states)
     else:
         logger.info("Volatility Watchlist: empty")
+
+    # Process upcoming IPO watchlist
+    upcoming_ipo_watchlist = get_upcoming_ipo_watchlist()
+    upcoming_ipo_states = load_state(UPCOMING_IPO_STATE_FILE)
+    process_upcoming_ipos(upcoming_ipo_watchlist, upcoming_ipo_notifier, upcoming_ipo_states)
+    save_state(UPCOMING_IPO_STATE_FILE, upcoming_ipo_states)
 
     logger.info("Check complete")
     return 0

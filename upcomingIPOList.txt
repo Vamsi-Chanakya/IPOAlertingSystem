@@ -1,0 +1,8 @@
+# Upcoming IPO Watchlist
+# Format: SYMBOL:YYYY-MM-DD (expected IPO date)
+# Example: BITGO:2026-03-15
+#
+# You can also just add a symbol without date to auto-fetch from NASDAQ:
+# Example: BITGO
+#
+# Alert will be sent 2 days before the expected IPO date

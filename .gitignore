@@ -1,6 +1,7 @@
 # State files (managed by GitHub Actions cache)
 ipo_state.json
 volatility_state.json
+upcoming_ipo_state.json
 
 # Python
 __pycache__/

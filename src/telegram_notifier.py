@@ -7,6 +7,7 @@ import requests
 
 from .ipo_checker import IPOInfo, IPOStatus
 from .volatility_checker import MovementType, VolatilityInfo
+from .upcoming_ipo_checker import UpcomingIPO
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,43 @@ class TelegramNotifier:
 
         if vol_info.previous_price is not None:
             message += f"<b>Previous Price:</b> {vol_info.currency} {vol_info.previous_price:.2f}\n"
+
+        return self.send_message(message.strip())
+
+    def send_upcoming_ipo_alert(self, ipo: UpcomingIPO) -> bool:
+        """Send a formatted upcoming IPO alert message."""
+        if ipo.days_until_ipo == 0:
+            emoji = "🚨"
+            urgency = "IPO IS TODAY!"
+        elif ipo.days_until_ipo == 1:
+            emoji = "⚠️"
+            urgency = "IPO is TOMORROW!"
+        else:
+            emoji = "📅"
+            urgency = f"IPO in {ipo.days_until_ipo} days"
+
+        message = f"""
+{emoji} <b>Upcoming IPO Alert: {ipo.symbol}</b>
+
+<b>{urgency}</b>
+"""
+
+        if ipo.company_name:
+            message += f"<b>Company:</b> {ipo.company_name}\n"
+
+        if ipo.expected_date:
+            message += f"<b>Expected Date:</b> {ipo.format_date()}\n"
+
+        if ipo.exchange:
+            message += f"<b>Exchange:</b> {ipo.exchange}\n"
+
+        if ipo.price_range:
+            message += f"<b>Price Range:</b> {ipo.price_range}\n"
+
+        if ipo.shares:
+            message += f"<b>Shares Offered:</b> {ipo.shares}\n"
+
+        message += f"\n<i>Source: {ipo.source}</i>"
 
         return self.send_message(message.strip())
 

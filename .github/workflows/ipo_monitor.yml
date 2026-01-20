@@ -1,4 +1,4 @@
-name: IPO & Volatility Monitor
+name: IPO, Volatility & Upcoming IPO Monitor
 
 on:
   # Run every 5 minutes
@@ -46,6 +46,14 @@ jobs:
           restore-keys: |
             volatility-state-
 
+      - name: Restore upcoming IPO state cache
+        uses: actions/cache@v4
+        with:
+          path: upcoming_ipo_state.json
+          key: upcoming-ipo-state-${{ github.run_id }}
+          restore-keys: |
+            upcoming-ipo-state-
+
       - name: Run alerting system
         env:
           # IPO Bot
@@ -54,6 +62,9 @@ jobs:
           # Volatility Bot
           VOLATILITY_BOT_TOKEN: ${{ secrets.VOLATILITY_BOT_TOKEN }}
           VOLATILITY_CHAT_ID: ${{ secrets.VOLATILITY_CHAT_ID }}
+          # Upcoming IPO Bot
+          UPCOMING_IPO_BOT_TOKEN: ${{ secrets.UPCOMING_IPO_BOT_TOKEN }}
+          UPCOMING_IPO_CHAT_ID: ${{ secrets.UPCOMING_IPO_CHAT_ID }}
         run: python main.py
 
       - name: Save IPO state cache
@@ -69,3 +80,10 @@ jobs:
         with:
           path: volatility_state.json
           key: volatility-state-${{ github.run_id }}
+
+      - name: Save upcoming IPO state cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: upcoming_ipo_state.json
+          key: upcoming-ipo-state-${{ github.run_id }}

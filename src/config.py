@@ -5,11 +5,12 @@ import platform
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 # Default watchlist file paths
 IPO_WATCHLIST_FILE = Path(__file__).parent.parent / "ipoWatchList.txt"
 VOLATILITY_WATCHLIST_FILE = Path(__file__).parent.parent / "volatilityWatchList.txt"
+UPCOMING_IPO_WATCHLIST_FILE = Path(__file__).parent.parent / "upcomingIPOList.txt"
 
 # Keychain service name for local secrets
 KEYCHAIN_ACCOUNT = "IPOAlertingSystem"
@@ -47,6 +48,7 @@ class Config:
 
     ipo_bot: BotConfig
     volatility_bot: BotConfig
+    upcoming_ipo_bot: BotConfig
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -74,15 +76,29 @@ class Config:
         if not vol_chat_id:
             vol_chat_id = get_from_keychain("VOLATILITY_CHAT_ID")
 
-        # Fall back to IPO bot if volatility bot not configured
         if not vol_token:
             vol_token = ipo_token
         if not vol_chat_id:
             vol_chat_id = ipo_chat_id
 
+        # Upcoming IPO Bot configuration (falls back to IPO bot if not configured)
+        upcoming_token = os.environ.get("UPCOMING_IPO_BOT_TOKEN")
+        upcoming_chat_id = os.environ.get("UPCOMING_IPO_CHAT_ID")
+
+        if not upcoming_token:
+            upcoming_token = get_from_keychain("UPCOMING_IPO_BOT_TOKEN")
+        if not upcoming_chat_id:
+            upcoming_chat_id = get_from_keychain("UPCOMING_IPO_CHAT_ID")
+
+        if not upcoming_token:
+            upcoming_token = ipo_token
+        if not upcoming_chat_id:
+            upcoming_chat_id = ipo_chat_id
+
         return cls(
             ipo_bot=BotConfig(bot_token=ipo_token, chat_id=ipo_chat_id),
             volatility_bot=BotConfig(bot_token=vol_token, chat_id=vol_chat_id),
+            upcoming_ipo_bot=BotConfig(bot_token=upcoming_token, chat_id=upcoming_chat_id),
         )
 
 
@@ -117,3 +133,37 @@ def get_volatility_watchlist() -> List[str]:
     """Load ticker symbols from volatilityWatchList.txt."""
     watchlist_path = os.environ.get("VOLATILITY_WATCHLIST_FILE", VOLATILITY_WATCHLIST_FILE)
     return _read_watchlist_file(Path(watchlist_path))
+
+
+def get_upcoming_ipo_watchlist() -> List[Tuple[str, Optional[str]]]:
+    """Load upcoming IPO symbols from upcomingIPOList.txt.
+
+    Format: SYMBOL or SYMBOL:YYYY-MM-DD
+
+    Returns:
+        List of tuples (symbol, expected_date_str or None)
+    """
+    watchlist_path = os.environ.get("UPCOMING_IPO_WATCHLIST_FILE", UPCOMING_IPO_WATCHLIST_FILE)
+    watchlist_path = Path(watchlist_path)
+
+    if not watchlist_path.exists():
+        return []
+
+    entries = []
+    with open(watchlist_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+
+            # Parse SYMBOL:DATE or just SYMBOL
+            if ":" in line:
+                parts = line.split(":", 1)
+                symbol = parts[0].strip().upper()
+                date_str = parts[1].strip() if len(parts) > 1 else None
+                entries.append((symbol, date_str))
+            else:
+                entries.append((line.upper(), None))
+
+    return entries
