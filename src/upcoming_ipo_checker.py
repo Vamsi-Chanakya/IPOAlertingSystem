@@ -3,9 +3,12 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import List, Optional, TYPE_CHECKING
 
 import requests
+
+if TYPE_CHECKING:
+    from .config import UpcomingIPOEntry
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +49,11 @@ class UpcomingIPOChecker:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": self.USER_AGENT})
 
-    def check_upcoming_ipos(self, watchlist: List[Tuple[str, Optional[str]]]) -> List[UpcomingIPO]:
+    def check_upcoming_ipos(self, watchlist: List["UpcomingIPOEntry"]) -> List[UpcomingIPO]:
         """Check status of upcoming IPOs.
 
         Args:
-            watchlist: List of tuples (symbol, expected_date_str or None)
+            watchlist: List of UpcomingIPOEntry objects from config
 
         Returns:
             List of UpcomingIPO objects with alert status
@@ -62,30 +65,41 @@ class UpcomingIPOChecker:
 
         today = datetime.now().date()
 
-        for symbol, date_str in watchlist:
-            ipo = self._check_single_ipo(symbol.upper(), date_str, nasdaq_data, today)
+        for entry in watchlist:
+            ipo = self._check_single_ipo(entry, nasdaq_data, today)
             results.append(ipo)
 
         return results
 
     def _check_single_ipo(
         self,
-        symbol: str,
-        date_str: Optional[str],
+        entry: "UpcomingIPOEntry",
         nasdaq_data: dict,
         today
     ) -> UpcomingIPO:
         """Check a single IPO symbol."""
-        ipo = UpcomingIPO(symbol=symbol)
+        ipo = UpcomingIPO(symbol=entry.symbol)
 
-        # Check if symbol is in NASDAQ data
-        nasdaq_info = nasdaq_data.get(symbol)
+        # Start with manual data from watchlist file
+        date_str = entry.expected_date
+        if entry.company_name:
+            ipo.company_name = entry.company_name
+            ipo.source = "manual"
+        if entry.price_range:
+            ipo.price_range = entry.price_range
+
+        # Check if symbol is in NASDAQ data (to supplement missing info)
+        nasdaq_info = nasdaq_data.get(entry.symbol)
         if nasdaq_info:
-            ipo.company_name = nasdaq_info.get("company_name")
+            # Only use NASDAQ data if manual data not provided
+            if not ipo.company_name:
+                ipo.company_name = nasdaq_info.get("company_name")
             ipo.exchange = nasdaq_info.get("exchange", "NASDAQ")
-            ipo.price_range = nasdaq_info.get("price_range")
+            if not ipo.price_range:
+                ipo.price_range = nasdaq_info.get("price_range")
             ipo.shares = nasdaq_info.get("shares")
-            ipo.source = "NASDAQ"
+            if not entry.company_name and not entry.price_range:
+                ipo.source = "NASDAQ"
 
             # Use NASDAQ date if no manual date provided
             if not date_str and nasdaq_info.get("expected_date"):
@@ -185,7 +199,7 @@ class UpcomingIPOChecker:
         return results
 
 
-def check_upcoming_ipos(watchlist: List[Tuple[str, Optional[str]]]) -> List[UpcomingIPO]:
+def check_upcoming_ipos(watchlist: List["UpcomingIPOEntry"]) -> List[UpcomingIPO]:
     """Convenience function to check upcoming IPOs."""
     checker = UpcomingIPOChecker()
     return checker.check_upcoming_ipos(watchlist)

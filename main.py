@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
-from src.config import get_config, get_ipo_watchlist, get_volatility_watchlist, get_upcoming_ipo_watchlist
+from src.config import get_config, get_ipo_watchlist, get_volatility_watchlist, get_upcoming_ipo_watchlist, UpcomingIPOEntry
 from src.ipo_checker import IPOInfo, IPOStatus, check_ipo_status
 from src.volatility_checker import VolatilityInfo, check_volatility
 from src.upcoming_ipo_checker import UpcomingIPO, check_upcoming_ipos
@@ -155,7 +155,7 @@ def check_volatility_symbol(symbol: str, notifier: TelegramNotifier, states: Dic
 
 
 def process_upcoming_ipos(
-    watchlist: List[Tuple[str, Optional[str]]],
+    watchlist: List[UpcomingIPOEntry],
     notifier: TelegramNotifier,
     states: Dict[str, dict]
 ) -> None:
@@ -164,7 +164,7 @@ def process_upcoming_ipos(
         logger.info("Upcoming IPO Watchlist: empty")
         return
 
-    symbols = [s for s, _ in watchlist]
+    symbols = [entry.symbol for entry in watchlist]
     logger.info(f"Upcoming IPO Watchlist: {len(watchlist)} symbol(s): {', '.join(symbols)}")
 
     # Check all upcoming IPOs

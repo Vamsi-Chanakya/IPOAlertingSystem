@@ -135,13 +135,30 @@ def get_volatility_watchlist() -> List[str]:
     return _read_watchlist_file(Path(watchlist_path))
 
 
-def get_upcoming_ipo_watchlist() -> List[Tuple[str, Optional[str]]]:
+@dataclass
+class UpcomingIPOEntry:
+    """Entry from upcoming IPO watchlist file."""
+
+    symbol: str
+    expected_date: Optional[str] = None
+    company_name: Optional[str] = None
+    price_range: Optional[str] = None
+
+
+def get_upcoming_ipo_watchlist() -> List[UpcomingIPOEntry]:
     """Load upcoming IPO symbols from upcomingIPOList.txt.
 
-    Format: SYMBOL or SYMBOL:YYYY-MM-DD
+    Format: SYMBOL:YYYY-MM-DD:COMPANY_NAME:PRICE_RANGE
+    All fields after SYMBOL are optional.
+
+    Examples:
+        BTGO
+        BTGO:2026-01-22
+        BTGO:2026-01-22:BitGo Holdings Inc.
+        BTGO:2026-01-22:BitGo Holdings Inc.:$20-$25
 
     Returns:
-        List of tuples (symbol, expected_date_str or None)
+        List of UpcomingIPOEntry objects
     """
     watchlist_path = os.environ.get("UPCOMING_IPO_WATCHLIST_FILE", UPCOMING_IPO_WATCHLIST_FILE)
     watchlist_path = Path(watchlist_path)
@@ -157,13 +174,19 @@ def get_upcoming_ipo_watchlist() -> List[Tuple[str, Optional[str]]]:
             if not line or line.startswith("#"):
                 continue
 
-            # Parse SYMBOL:DATE or just SYMBOL
-            if ":" in line:
-                parts = line.split(":", 1)
-                symbol = parts[0].strip().upper()
-                date_str = parts[1].strip() if len(parts) > 1 else None
-                entries.append((symbol, date_str))
-            else:
-                entries.append((line.upper(), None))
+            # Parse SYMBOL:DATE:COMPANY_NAME:PRICE_RANGE
+            parts = line.split(":")
+            symbol = parts[0].strip().upper()
+
+            entry = UpcomingIPOEntry(symbol=symbol)
+
+            if len(parts) > 1 and parts[1].strip():
+                entry.expected_date = parts[1].strip()
+            if len(parts) > 2 and parts[2].strip():
+                entry.company_name = parts[2].strip()
+            if len(parts) > 3 and parts[3].strip():
+                entry.price_range = parts[3].strip()
+
+            entries.append(entry)
 
     return entries

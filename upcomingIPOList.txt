@@ -1,8 +1,14 @@
 # Upcoming IPO Watchlist
-# Format: SYMBOL:YYYY-MM-DD (expected IPO date)
-# Example: BITGO:2026-03-15
-#
-# You can also just add a symbol without date to auto-fetch from NASDAQ:
-# Example: BITGO
-#
+# Format: SYMBOL:YYYY-MM-DD:COMPANY_NAME:PRICE_RANGE
+# All fields after SYMBOL are optional
 # Alert will be sent 2 days before the expected IPO date
+#
+# Examples:
+#   BTGO
+#   BTGO:2026-01-22
+#   BTGO:2026-01-22:BitGo Holdings Inc.
+#   BTGO:2026-01-22:BitGo Holdings Inc.:$15-$17
+
+BTGO:2026-01-22:BitGo Holdings Inc.:$15-$17
+EQPT:2026-01-23:EquipmentShare.com Inc.:$23.50-$25.50
+LIFE:2026-01-29:Ethos Technologies Inc.:$18-$20
