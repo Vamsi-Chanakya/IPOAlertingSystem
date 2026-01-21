@@ -1,17 +1,16 @@
-# Upcoming IPO Watchlist
+# Upcoming IPO Watchlist (Auto-generated)
 # Format: SYMBOL:YYYY-MM-DD:COMPANY_NAME:PRICE_RANGE
-# All fields after SYMBOL are optional
 #
-# Alert settings:
-#   - Alerts sent 2 days before the expected IPO date
-#   - Entries auto-deleted if IPO date has passed
-#   - Entries auto-deleted if IPO date is more than 7 days away
+# Data sources: NASDAQ, Yahoo Finance, IPOScoop, MarketWatch, Webull
+# Only IPOs within 7 days are included
+# Alerts are sent 2 days before the IPO date
 #
-# Examples:
-#   BTGO
-#   BTGO:2026-01-22
-#   BTGO:2026-01-22:BitGo Holdings Inc.
-#   BTGO:2026-01-22:BitGo Holdings Inc.:$15-$17
+# Last updated: 2026-01-20 22:30:22
 
-BTGO:2026-01-22:BitGo Holdings Inc.:$15-$17
-EQPT:2026-01-23:EquipmentShare.com Inc.:$23.50-$25.50
+HAKY:2026-01-21:Amplify ETF Trust:-  # Yahoo Finance
+PLSM:2026-01-21:Pulsenmore Ltd. Ordinary Shares:-  # Yahoo Finance
+QXAS:2026-01-21:Tidal Trust II:-  # Yahoo Finance
+SCZM:2026-01-21:Santacruz Silver Mining Ltd. Common Shares:-  # Yahoo Finance
+XCBEU:2026-01-21:X3 Acquisition Corp. Ltd. Unit:-  # Yahoo Finance
+BTGO:2026-01-22:BitGo Holdings:  # IPOScoop
+EQPT:2026-01-23:EquipmentShare.com, Inc.:  # IPOScoop

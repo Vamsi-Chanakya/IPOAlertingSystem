@@ -272,3 +272,50 @@ def cleanup_upcoming_ipo_watchlist() -> int:
         logger.info(f"Cleaned up {removed_count} entries from upcoming IPO watchlist")
 
     return removed_count
+
+
+def refresh_upcoming_ipo_watchlist() -> int:
+    """Fetch upcoming IPOs from multiple internet sources and update the watchlist file.
+
+    Sources: NASDAQ, Yahoo Finance, IPOScoop, MarketWatch, Webull
+
+    Only includes IPOs within the valid date range (today to today + MAX_DAYS_AHEAD).
+    Replaces the entire watchlist with fresh data.
+
+    Returns:
+        Number of IPOs added to the watchlist
+    """
+    # Import here to avoid circular imports
+    from .ipo_data_sources import fetch_upcoming_ipos
+
+    watchlist_path = os.environ.get("UPCOMING_IPO_WATCHLIST_FILE", UPCOMING_IPO_WATCHLIST_FILE)
+    watchlist_path = Path(watchlist_path)
+
+    logger.info("Fetching upcoming IPOs from multiple sources...")
+    valid_ipos = fetch_upcoming_ipos(max_days_ahead=MAX_DAYS_AHEAD)
+
+    # Write the watchlist file
+    sources_list = "NASDAQ, Yahoo Finance, IPOScoop, MarketWatch, Webull"
+    header = f"""# Upcoming IPO Watchlist (Auto-generated)
+# Format: SYMBOL:YYYY-MM-DD:COMPANY_NAME:PRICE_RANGE
+#
+# Data sources: {sources_list}
+# Only IPOs within {MAX_DAYS_AHEAD} days are included
+# Alerts are sent {ALERT_DAYS_BEFORE} days before the IPO date
+#
+# Last updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+"""
+
+    with open(watchlist_path, "w") as f:
+        f.write(header)
+        for ipo in valid_ipos:
+            date_str = ipo.format_date()
+            company = ipo.company_name or ""
+            price_range = ipo.price_range or ""
+            sources = ", ".join(ipo.sources)
+            # Add source info as comment
+            f.write(f"{ipo.symbol}:{date_str}:{company}:{price_range}  # {sources}\n")
+
+    logger.info(f"Updated upcoming IPO watchlist with {len(valid_ipos)} IPOs")
+    return len(valid_ipos)

@@ -21,7 +21,7 @@ from src.config import (
     get_ipo_watchlist,
     get_volatility_watchlist,
     get_upcoming_ipo_watchlist,
-    cleanup_upcoming_ipo_watchlist,
+    refresh_upcoming_ipo_watchlist,
     UpcomingIPOEntry,
     ALERT_DAYS_BEFORE,
     MAX_DAYS_AHEAD,
@@ -257,8 +257,8 @@ def main() -> int:
         logger.info("Volatility Watchlist: empty")
 
     # Process upcoming IPO watchlist
-    # First cleanup: remove past IPOs and IPOs more than MAX_DAYS_AHEAD days away
-    cleanup_upcoming_ipo_watchlist()
+    # Refresh watchlist from NASDAQ API (only IPOs within MAX_DAYS_AHEAD days)
+    refresh_upcoming_ipo_watchlist()
 
     upcoming_ipo_watchlist = get_upcoming_ipo_watchlist()
     upcoming_ipo_states = load_state(UPCOMING_IPO_STATE_FILE)
