@@ -152,11 +152,13 @@ class UpcomingIPOEntry:
 def get_upcoming_ipo_watchlist() -> List[UpcomingIPOEntry]:
     """Load upcoming IPO symbols from upcomingIPOList.txt.
 
-    Format: Tab-separated (SYMBOL  DATE  COMPANY_NAME  PRICE_RANGE  SOURCE)
+    Format: Space-aligned columns (SYMBOL  DATE  COMPANY  PRICE_RANGE  SOURCE)
 
     Returns:
         List of UpcomingIPOEntry objects
     """
+    import re
+
     watchlist_path = os.environ.get("UPCOMING_IPO_WATCHLIST_FILE", UPCOMING_IPO_WATCHLIST_FILE)
     watchlist_path = Path(watchlist_path)
 
@@ -167,21 +169,23 @@ def get_upcoming_ipo_watchlist() -> List[UpcomingIPOEntry]:
     with open(watchlist_path, "r") as f:
         for line in f:
             line = line.strip()
-            # Skip empty lines, comments, and header row
-            if not line or line.startswith("#") or line.startswith("SYMBOL"):
+            # Skip empty lines, comments, header row, and separator
+            if not line or line.startswith("#") or line.startswith("SYMBOL") or line.startswith("-"):
                 continue
 
-            # Parse tab-separated: SYMBOL  DATE  COMPANY  PRICE_RANGE  SOURCE
-            parts = line.split("\t")
-            symbol = parts[0].strip().upper()
+            # Parse space-separated columns (split by 2+ spaces)
+            parts = re.split(r'\s{2,}', line)
+            if not parts:
+                continue
 
+            symbol = parts[0].strip().upper()
             entry = UpcomingIPOEntry(symbol=symbol)
 
-            if len(parts) > 1 and parts[1].strip():
+            if len(parts) > 1 and parts[1].strip() and parts[1].strip() != "-":
                 entry.expected_date = parts[1].strip()
-            if len(parts) > 2 and parts[2].strip():
+            if len(parts) > 2 and parts[2].strip() and parts[2].strip() != "-":
                 entry.company_name = parts[2].strip()
-            if len(parts) > 3 and parts[3].strip():
+            if len(parts) > 3 and parts[3].strip() and parts[3].strip() != "-":
                 entry.price_range = parts[3].strip()
 
             entries.append(entry)
@@ -287,10 +291,37 @@ def refresh_upcoming_ipo_watchlist() -> int:
     logger.info("Fetching upcoming IPOs from multiple sources...")
     valid_ipos = fetch_upcoming_ipos(max_days_ahead=MAX_DAYS_AHEAD)
 
-    # Write the watchlist file (tab-separated format)
+    # Write the watchlist file (properly aligned tabular format)
     sources_list = "NASDAQ, Yahoo Finance, IPOScoop, MarketWatch"
+
+    # Prepare data rows
+    rows = []
+    for ipo in valid_ipos:
+        rows.append({
+            "symbol": ipo.symbol,
+            "date": ipo.format_date(),
+            "company": ipo.company_name or "-",
+            "price_range": ipo.price_range or "-",
+            "source": ", ".join(ipo.sources),
+        })
+
+    # Calculate column widths (minimum widths for headers)
+    col_widths = {
+        "symbol": max(6, max((len(r["symbol"]) for r in rows), default=0)),
+        "date": max(10, max((len(r["date"]) for r in rows), default=0)),
+        "company": max(7, max((len(r["company"]) for r in rows), default=0)),
+        "price_range": max(11, max((len(r["price_range"]) for r in rows), default=0)),
+        "source": max(6, max((len(r["source"]) for r in rows), default=0)),
+    }
+
+    # Create format string
+    fmt = f"{{:<{col_widths['symbol']}}}  {{:<{col_widths['date']}}}  {{:<{col_widths['company']}}}  {{:<{col_widths['price_range']}}}  {{:<{col_widths['source']}}}"
+
+    # Build header row and separator
+    header_row = fmt.format("SYMBOL", "DATE", "COMPANY", "PRICE_RANGE", "SOURCE")
+    separator = "-" * len(header_row)
+
     header = f"""# Upcoming IPO Watchlist (Auto-generated)
-# Format: SYMBOL	DATE	COMPANY_NAME	PRICE_RANGE	SOURCE (tab-separated)
 #
 # Data sources: {sources_list}
 # Only IPOs within {MAX_DAYS_AHEAD} days are included
@@ -298,17 +329,15 @@ def refresh_upcoming_ipo_watchlist() -> int:
 #
 # Last updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
-SYMBOL	DATE	COMPANY	PRICE_RANGE	SOURCE
+{header_row}
+{separator}
 """
 
     with open(watchlist_path, "w") as f:
         f.write(header)
-        for ipo in valid_ipos:
-            date_str = ipo.format_date()
-            company = ipo.company_name or ""
-            price_range = ipo.price_range or ""
-            sources = ", ".join(ipo.sources)
-            f.write(f"{ipo.symbol}\t{date_str}\t{company}\t{price_range}\t{sources}\n")
+        for row in rows:
+            line = fmt.format(row["symbol"], row["date"], row["company"], row["price_range"], row["source"])
+            f.write(f"{line}\n")
 
     logger.info(f"Updated upcoming IPO watchlist with {len(valid_ipos)} IPOs")
 
