@@ -1,16 +1,17 @@
 # Upcoming IPO Watchlist (Auto-generated)
-# Format: SYMBOL:YYYY-MM-DD:COMPANY_NAME:PRICE_RANGE
+# Format: SYMBOL	DATE	COMPANY_NAME	PRICE_RANGE	SOURCE (tab-separated)
 #
 # Data sources: NASDAQ, Yahoo Finance, IPOScoop, MarketWatch
 # Only IPOs within 7 days are included
 # Alerts are sent 2 days before the IPO date
 #
-# Last updated: 2026-01-20 22:37:24
+# Last updated: 2026-01-20 22:45:26
 
-HAKY:2026-01-21:Amplify ETF Trust:-  # Yahoo Finance
-PLSM:2026-01-21:Pulsenmore Ltd. Ordinary Shares:-  # Yahoo Finance
-QXAS:2026-01-21:Tidal Trust II:-  # Yahoo Finance
-SCZM:2026-01-21:Santacruz Silver Mining Ltd. Common Shares:-  # Yahoo Finance
-XCBEU:2026-01-21:X3 Acquisition Corp. Ltd. Unit:-  # Yahoo Finance
-BTGO:2026-01-22:BitGo Holdings:  # IPOScoop
-EQPT:2026-01-23:EquipmentShare.com, Inc.:  # IPOScoop
+SYMBOL	DATE	COMPANY	PRICE_RANGE	SOURCE
+HAKY	2026-01-21	Amplify ETF Trust	-	Yahoo Finance
+PLSM	2026-01-21	Pulsenmore Ltd. Ordinary Shares	-	Yahoo Finance
+QXAS	2026-01-21	Tidal Trust II	-	Yahoo Finance
+SCZM	2026-01-21	Santacruz Silver Mining Ltd. Common Shares	-	Yahoo Finance
+XCBEU	2026-01-21	X3 Acquisition Corp. Ltd. Unit	-	Yahoo Finance
+BTGO	2026-01-22	BitGo Holdings		IPOScoop
+EQPT	2026-01-23	EquipmentShare.com, Inc.		IPOScoop

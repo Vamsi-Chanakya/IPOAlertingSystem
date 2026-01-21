@@ -152,14 +152,7 @@ class UpcomingIPOEntry:
 def get_upcoming_ipo_watchlist() -> List[UpcomingIPOEntry]:
     """Load upcoming IPO symbols from upcomingIPOList.txt.
 
-    Format: SYMBOL:YYYY-MM-DD:COMPANY_NAME:PRICE_RANGE
-    All fields after SYMBOL are optional.
-
-    Examples:
-        BTGO
-        BTGO:2026-01-22
-        BTGO:2026-01-22:BitGo Holdings Inc.
-        BTGO:2026-01-22:BitGo Holdings Inc.:$20-$25
+    Format: Tab-separated (SYMBOL  DATE  COMPANY_NAME  PRICE_RANGE  SOURCE)
 
     Returns:
         List of UpcomingIPOEntry objects
@@ -174,12 +167,12 @@ def get_upcoming_ipo_watchlist() -> List[UpcomingIPOEntry]:
     with open(watchlist_path, "r") as f:
         for line in f:
             line = line.strip()
-            # Skip empty lines and comments
-            if not line or line.startswith("#"):
+            # Skip empty lines, comments, and header row
+            if not line or line.startswith("#") or line.startswith("SYMBOL"):
                 continue
 
-            # Parse SYMBOL:DATE:COMPANY_NAME:PRICE_RANGE
-            parts = line.split(":")
+            # Parse tab-separated: SYMBOL  DATE  COMPANY  PRICE_RANGE  SOURCE
+            parts = line.split("\t")
             symbol = parts[0].strip().upper()
 
             entry = UpcomingIPOEntry(symbol=symbol)
@@ -294,10 +287,10 @@ def refresh_upcoming_ipo_watchlist() -> int:
     logger.info("Fetching upcoming IPOs from multiple sources...")
     valid_ipos = fetch_upcoming_ipos(max_days_ahead=MAX_DAYS_AHEAD)
 
-    # Write the watchlist file
+    # Write the watchlist file (tab-separated format)
     sources_list = "NASDAQ, Yahoo Finance, IPOScoop, MarketWatch"
     header = f"""# Upcoming IPO Watchlist (Auto-generated)
-# Format: SYMBOL:YYYY-MM-DD:COMPANY_NAME:PRICE_RANGE
+# Format: SYMBOL	DATE	COMPANY_NAME	PRICE_RANGE	SOURCE (tab-separated)
 #
 # Data sources: {sources_list}
 # Only IPOs within {MAX_DAYS_AHEAD} days are included
@@ -305,6 +298,7 @@ def refresh_upcoming_ipo_watchlist() -> int:
 #
 # Last updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
+SYMBOL	DATE	COMPANY	PRICE_RANGE	SOURCE
 """
 
     with open(watchlist_path, "w") as f:
@@ -314,8 +308,7 @@ def refresh_upcoming_ipo_watchlist() -> int:
             company = ipo.company_name or ""
             price_range = ipo.price_range or ""
             sources = ", ".join(ipo.sources)
-            # Add source info as comment
-            f.write(f"{ipo.symbol}:{date_str}:{company}:{price_range}  # {sources}\n")
+            f.write(f"{ipo.symbol}\t{date_str}\t{company}\t{price_range}\t{sources}\n")
 
     logger.info(f"Updated upcoming IPO watchlist with {len(valid_ipos)} IPOs")
 

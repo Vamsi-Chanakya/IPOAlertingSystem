@@ -2,7 +2,7 @@
 # One ticker per line
 # Tickers kept until IPO date + 2 days
 #
-# Last updated: 2026-01-20 22:37:24
+# Last updated: 2026-01-20 22:45:26
 
 BTGO
 EQPT
