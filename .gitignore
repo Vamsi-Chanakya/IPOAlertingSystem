@@ -2,6 +2,7 @@
 ipo_state.json
 volatility_state.json
 upcoming_ipo_state.json
+ipo_watchlist_dates.json
 
 # Python
 __pycache__/

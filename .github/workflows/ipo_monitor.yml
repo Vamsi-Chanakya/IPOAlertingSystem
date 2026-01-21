@@ -54,6 +54,14 @@ jobs:
           restore-keys: |
             upcoming-ipo-state-
 
+      - name: Restore IPO watchlist dates cache
+        uses: actions/cache@v4
+        with:
+          path: ipo_watchlist_dates.json
+          key: ipo-watchlist-dates-${{ github.run_id }}
+          restore-keys: |
+            ipo-watchlist-dates-
+
       - name: Run alerting system
         env:
           # IPO Bot
@@ -87,3 +95,10 @@ jobs:
         with:
           path: upcoming_ipo_state.json
           key: upcoming-ipo-state-${{ github.run_id }}
+
+      - name: Save IPO watchlist dates cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: ipo_watchlist_dates.json
+          key: ipo-watchlist-dates-${{ github.run_id }}

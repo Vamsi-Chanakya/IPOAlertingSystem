@@ -5,7 +5,7 @@ import os
 import platform
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -295,7 +295,7 @@ def refresh_upcoming_ipo_watchlist() -> int:
     valid_ipos = fetch_upcoming_ipos(max_days_ahead=MAX_DAYS_AHEAD)
 
     # Write the watchlist file
-    sources_list = "NASDAQ, Yahoo Finance, IPOScoop, MarketWatch, Webull"
+    sources_list = "NASDAQ, Yahoo Finance, IPOScoop, MarketWatch"
     header = f"""# Upcoming IPO Watchlist (Auto-generated)
 # Format: SYMBOL:YYYY-MM-DD:COMPANY_NAME:PRICE_RANGE
 #
@@ -318,4 +318,97 @@ def refresh_upcoming_ipo_watchlist() -> int:
             f.write(f"{ipo.symbol}:{date_str}:{company}:{price_range}  # {sources}\n")
 
     logger.info(f"Updated upcoming IPO watchlist with {len(valid_ipos)} IPOs")
+
+    # Also update the IPO watchlist with tickers from upcoming IPOs
+    sync_ipo_watchlist_from_upcoming(valid_ipos)
+
     return len(valid_ipos)
+
+
+# Days after IPO to keep ticker in watchlist (to catch trading start)
+DAYS_AFTER_IPO_TO_KEEP = 2
+
+# State file for tracking IPO dates for watchlist cleanup
+IPO_WATCHLIST_DATES_FILE = Path(__file__).parent.parent / "ipo_watchlist_dates.json"
+
+
+def sync_ipo_watchlist_from_upcoming(upcoming_ipos: list) -> int:
+    """Sync ipoWatchList.txt with tickers from upcoming IPOs.
+
+    - Adds new tickers from upcoming IPOs
+    - Removes tickers that are past IPO date + DAYS_AFTER_IPO_TO_KEEP
+    - Tracks IPO dates in a separate state file
+
+    Returns:
+        Number of tickers in the updated watchlist
+    """
+    import json
+
+    watchlist_path = os.environ.get("IPO_WATCHLIST_FILE", IPO_WATCHLIST_FILE)
+    watchlist_path = Path(watchlist_path)
+    dates_file = Path(os.environ.get("IPO_WATCHLIST_DATES_FILE", IPO_WATCHLIST_DATES_FILE))
+
+    today = datetime.now().date()
+
+    # Load existing IPO dates tracking
+    ipo_dates = {}
+    if dates_file.exists():
+        try:
+            with open(dates_file, "r") as f:
+                ipo_dates = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # Add new IPOs from upcoming list
+    for ipo in upcoming_ipos:
+        symbol = ipo.symbol.upper()
+        if ipo.expected_date:
+            date_str = ipo.expected_date.strftime("%Y-%m-%d")
+            if symbol not in ipo_dates:
+                logger.info(f"Adding {symbol} to IPO watchlist (IPO date: {date_str})")
+            ipo_dates[symbol] = date_str
+
+    # Determine which tickers to keep
+    tickers_to_keep = []
+    tickers_to_remove = []
+
+    for symbol, date_str in list(ipo_dates.items()):
+        try:
+            ipo_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            cutoff_date = ipo_date + timedelta(days=DAYS_AFTER_IPO_TO_KEEP)
+            days_since_cutoff = (today - cutoff_date).days
+
+            if days_since_cutoff > 0:
+                # Past cutoff, remove
+                logger.info(f"Removing {symbol} from IPO watchlist (IPO was on {date_str}, {days_since_cutoff} days past cutoff)")
+                tickers_to_remove.append(symbol)
+            else:
+                tickers_to_keep.append(symbol)
+        except ValueError:
+            # Can't parse date, keep it
+            tickers_to_keep.append(symbol)
+
+    # Remove expired tickers from dates tracking
+    for symbol in tickers_to_remove:
+        del ipo_dates[symbol]
+
+    # Write updated ipoWatchList.txt
+    header = f"""# IPO Watchlist (Auto-generated from upcoming IPOs)
+# One ticker per line
+# Tickers kept until IPO date + {DAYS_AFTER_IPO_TO_KEEP} days
+#
+# Last updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+"""
+
+    with open(watchlist_path, "w") as f:
+        f.write(header)
+        for symbol in sorted(tickers_to_keep):
+            f.write(f"{symbol}\n")
+
+    # Save updated dates tracking
+    with open(dates_file, "w") as f:
+        json.dump(ipo_dates, f, indent=2)
+
+    logger.info(f"Updated IPO watchlist with {len(tickers_to_keep)} tickers")
+    return len(tickers_to_keep)

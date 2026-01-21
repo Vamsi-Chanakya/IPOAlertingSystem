@@ -72,7 +72,6 @@ class IPODataFetcher:
             ("Yahoo Finance", self._fetch_yahoo_finance),
             ("IPOScoop", self._fetch_iposcoop),
             ("MarketWatch", self._fetch_marketwatch),
-            ("Webull", self._fetch_webull),
         ]
 
         for source_name, fetch_func in sources:
@@ -311,61 +310,6 @@ class IPODataFetcher:
 
         except requests.RequestException as e:
             logger.warning(f"MarketWatch error: {e}")
-
-        return results
-
-    def _fetch_webull(self) -> List[IPOData]:
-        """Fetch from Webull IPO Calendar API."""
-        results = []
-        try:
-            # Webull uses an API endpoint
-            url = "https://quotes-gw.webullfintech.com/api/ipo/listIpo"
-            headers = {
-                "User-Agent": self.USER_AGENT,
-                "Accept": "application/json",
-            }
-            params = {
-                "regionId": 6,  # US market
-                "status": 1,    # Upcoming
-                "pageSize": 50,
-            }
-            response = self.session.get(url, headers=headers, params=params, timeout=15)
-
-            if response.status_code == 200:
-                data = response.json()
-                items = data.get("data", []) or []
-
-                for item in items:
-                    symbol = (item.get("tickerSymbol") or item.get("symbol") or "").upper()
-                    if not symbol:
-                        continue
-
-                    # Parse expected date
-                    expected_date = None
-                    date_str = item.get("expectedListDate") or item.get("ipoDate")
-                    if date_str:
-                        expected_date = self._parse_date(date_str)
-
-                    # Parse price range
-                    price_low = item.get("ipoPriceLow")
-                    price_high = item.get("ipoPriceHigh")
-                    price_range = None
-                    if price_low and price_high:
-                        price_range = f"${price_low}-${price_high}"
-                    elif item.get("ipoPrice"):
-                        price_range = f"${item.get('ipoPrice')}"
-
-                    results.append(IPOData(
-                        symbol=symbol,
-                        company_name=item.get("name") or item.get("companyName"),
-                        expected_date=expected_date,
-                        price_range=price_range,
-                        exchange=item.get("exchangeCode"),
-                        shares=item.get("sharesOffered"),
-                    ))
-
-        except requests.RequestException as e:
-            logger.warning(f"Webull error: {e}")
 
         return results
 
