@@ -1,11 +1,15 @@
 """Configuration management for IPO Alerting System."""
 
+import logging
 import os
 import platform
 import subprocess
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 # Default watchlist file paths
 IPO_WATCHLIST_FILE = Path(__file__).parent.parent / "ipoWatchList.txt"
@@ -190,3 +194,81 @@ def get_upcoming_ipo_watchlist() -> List[UpcomingIPOEntry]:
             entries.append(entry)
 
     return entries
+
+
+# Upcoming IPO alert and cleanup settings
+ALERT_DAYS_BEFORE = 2  # Send alert this many days before IPO
+MAX_DAYS_AHEAD = 7     # Only keep IPOs within this many days
+
+
+def cleanup_upcoming_ipo_watchlist() -> int:
+    """Remove past IPOs and IPOs more than MAX_DAYS_AHEAD days away.
+
+    Returns:
+        Number of entries removed
+    """
+    watchlist_path = os.environ.get("UPCOMING_IPO_WATCHLIST_FILE", UPCOMING_IPO_WATCHLIST_FILE)
+    watchlist_path = Path(watchlist_path)
+
+    if not watchlist_path.exists():
+        return 0
+
+    today = datetime.now().date()
+    lines_to_keep = []
+    removed_count = 0
+
+    with open(watchlist_path, "r") as f:
+        for line in f:
+            original_line = line
+            line = line.strip()
+
+            # Keep comments and empty lines
+            if not line or line.startswith("#"):
+                lines_to_keep.append(original_line)
+                continue
+
+            # Parse the date from the entry
+            parts = line.split(":")
+            symbol = parts[0].strip().upper()
+
+            # If no date provided, keep the entry
+            if len(parts) < 2 or not parts[1].strip():
+                lines_to_keep.append(original_line)
+                continue
+
+            date_str = parts[1].strip()
+
+            # Try to parse the date
+            ipo_date = None
+            for fmt in ["%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%Y/%m/%d"]:
+                try:
+                    ipo_date = datetime.strptime(date_str, fmt).date()
+                    break
+                except ValueError:
+                    continue
+
+            if ipo_date is None:
+                # Can't parse date, keep the entry
+                lines_to_keep.append(original_line)
+                continue
+
+            # Calculate days until IPO
+            days_until = (ipo_date - today).days
+
+            # Remove if date has passed (days_until < 0) or more than MAX_DAYS_AHEAD away
+            if days_until < 0:
+                logger.info(f"Removing {symbol}: IPO date {date_str} has passed")
+                removed_count += 1
+            elif days_until > MAX_DAYS_AHEAD:
+                logger.info(f"Removing {symbol}: IPO date {date_str} is more than {MAX_DAYS_AHEAD} days away ({days_until} days)")
+                removed_count += 1
+            else:
+                lines_to_keep.append(original_line)
+
+    # Only rewrite the file if entries were removed
+    if removed_count > 0:
+        with open(watchlist_path, "w") as f:
+            f.writelines(lines_to_keep)
+        logger.info(f"Cleaned up {removed_count} entries from upcoming IPO watchlist")
+
+    return removed_count

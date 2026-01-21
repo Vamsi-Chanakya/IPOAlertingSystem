@@ -10,10 +10,9 @@ import requests
 if TYPE_CHECKING:
     from .config import UpcomingIPOEntry
 
-logger = logging.getLogger(__name__)
+from .config import ALERT_DAYS_BEFORE
 
-# Alert threshold - days before IPO to send alert
-ALERT_DAYS_BEFORE = 2
+logger = logging.getLogger(__name__)
 
 
 @dataclass

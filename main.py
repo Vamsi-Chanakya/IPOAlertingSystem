@@ -16,7 +16,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
-from src.config import get_config, get_ipo_watchlist, get_volatility_watchlist, get_upcoming_ipo_watchlist, UpcomingIPOEntry
+from src.config import (
+    get_config,
+    get_ipo_watchlist,
+    get_volatility_watchlist,
+    get_upcoming_ipo_watchlist,
+    cleanup_upcoming_ipo_watchlist,
+    UpcomingIPOEntry,
+    ALERT_DAYS_BEFORE,
+    MAX_DAYS_AHEAD,
+)
 from src.ipo_checker import IPOInfo, IPOStatus, check_ipo_status
 from src.volatility_checker import VolatilityInfo, check_volatility
 from src.upcoming_ipo_checker import UpcomingIPO, check_upcoming_ipos
@@ -186,7 +195,7 @@ def process_upcoming_ipos(
 
         # Only alert once per day
         if ipo.should_alert and last_alert_date != today:
-            logger.info(f"  Alert condition met (IPO within 2 days) - sending notification")
+            logger.info(f"  Alert condition met (IPO within {ALERT_DAYS_BEFORE} days) - sending notification")
             if notifier.send_upcoming_ipo_alert(ipo):
                 logger.info(f"  Alert sent successfully")
                 states[ipo.symbol] = {
@@ -199,7 +208,7 @@ def process_upcoming_ipos(
         elif ipo.should_alert:
             logger.info(f"  Already alerted today - skipping")
         else:
-            logger.info(f"  No alert needed (IPO not within 2 days)")
+            logger.info(f"  No alert needed (IPO not within {ALERT_DAYS_BEFORE} days)")
 
             # Still update state for tracking
             if ipo.symbol not in states:
@@ -248,6 +257,9 @@ def main() -> int:
         logger.info("Volatility Watchlist: empty")
 
     # Process upcoming IPO watchlist
+    # First cleanup: remove past IPOs and IPOs more than MAX_DAYS_AHEAD days away
+    cleanup_upcoming_ipo_watchlist()
+
     upcoming_ipo_watchlist = get_upcoming_ipo_watchlist()
     upcoming_ipo_states = load_state(UPCOMING_IPO_STATE_FILE)
     process_upcoming_ipos(upcoming_ipo_watchlist, upcoming_ipo_notifier, upcoming_ipo_states)

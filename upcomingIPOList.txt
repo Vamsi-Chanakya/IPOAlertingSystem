@@ -1,7 +1,11 @@
 # Upcoming IPO Watchlist
 # Format: SYMBOL:YYYY-MM-DD:COMPANY_NAME:PRICE_RANGE
 # All fields after SYMBOL are optional
-# Alert will be sent 2 days before the expected IPO date
+#
+# Alert settings:
+#   - Alerts sent 2 days before the expected IPO date
+#   - Entries auto-deleted if IPO date has passed
+#   - Entries auto-deleted if IPO date is more than 7 days away
 #
 # Examples:
 #   BTGO
@@ -11,4 +15,3 @@
 
 BTGO:2026-01-22:BitGo Holdings Inc.:$15-$17
 EQPT:2026-01-23:EquipmentShare.com Inc.:$23.50-$25.50
-LIFE:2026-01-29:Ethos Technologies Inc.:$18-$20
